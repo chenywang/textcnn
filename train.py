@@ -14,7 +14,7 @@ from config.configs import PROJECT_PATH
 from text_cnn import TextCNN
 from word2vec.word2vec_service import Word2VecService
 
-tf.flags.DEFINE_float("dev_sample_percentage", .001, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", .01, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos",
                        "Data source for the positive data.")
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg",
@@ -72,7 +72,6 @@ def preprocess(load_review, build_word2vec_matrix=True):
         word2vec_service = Word2VecService()
         word2vec_matrix = data_helpers.build_word2vec_matrix(vocab_processor, vector_size, word2vec_service)
         del word2vec_service
-        del vocab_processor
 
     # Randomly shuffle data
     np.random.seed(10)
@@ -82,7 +81,10 @@ def preprocess(load_review, build_word2vec_matrix=True):
 
     # Split train/test set
     # TODO: This is very crude, should use cross-validation
-    dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
+    dev_count = FLAGS.dev_sample_percentage * float(len(y))
+    dev_count = min(dev_count, FLAGS.batch_size * 2)
+    dev_count = max(dev_count, FLAGS.batch_size)
+    dev_sample_index = -1 * dev_count
     x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
     y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
 
