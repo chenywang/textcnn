@@ -14,7 +14,7 @@ from config.configs import PROJECT_PATH
 from text_cnn import TextCNN
 from word2vec.word2vec_service import Word2VecService
 
-tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", .001, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos",
                        "Data source for the positive data.")
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg",
@@ -71,6 +71,8 @@ def preprocess(load_review, build_word2vec_matrix=True):
         vector_size = 100
         word2vec_service = Word2VecService()
         word2vec_matrix = data_helpers.build_word2vec_matrix(vocab_processor, vector_size, word2vec_service)
+        del word2vec_service
+        del vocab_processor
 
     # Randomly shuffle data
     np.random.seed(10)
@@ -216,6 +218,6 @@ def main(argv=None):
                                                                                   FLAGS.build_word2vec_matrix)
     train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, FLAGS.train_word2vec)
 
-
+# python train.py --review_path="/data/review_seg.csv"
 if __name__ == '__main__':
     tf.app.run()

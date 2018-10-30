@@ -1,5 +1,6 @@
 import re
 
+import gc
 import numpy as np
 import pandas as pd
 
@@ -61,7 +62,10 @@ def load_review_data_and_labels(path):
     df = pd.read_csv(path, sep='\t', lineterminator='\n')
     df = df.dropna(axis=0, how='any')
     df['label'] = df.apply(calc_review_score, axis=1)
-    return list(df['words']), np.array(list(df['label'])).astype(np.float32)
+    x_text, y = list(df['words']), np.array(list(df['label'])).astype(np.float32)
+    del df
+    gc.collect()
+    return x_text, y
 
 
 def build_word2vec_matrix(vocab_processor, vector_size, word2vec_service):
