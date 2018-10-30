@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import datetime
 import os
@@ -36,6 +37,10 @@ tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (d
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 
+tf.flags.DEFINE_string("review_path", '/data/review_seg_1000.csv', "评论的路径（default：/data/review_seg_1000.csv）")
+tf.flags.DEFINE_boolean("build_word2vec_matrix", True, "是否使用现成的word2vec模型作为词嵌入矩阵（default：True）")
+tf.flags.DEFINE_boolean("train_word2vec", True, "是否让词嵌入矩阵是可训练的（default：True）")
+
 FLAGS = tf.flags.FLAGS
 
 
@@ -45,12 +50,12 @@ FLAGS = tf.flags.FLAGS
 #     print("{}={}".format(attr.upper(), value))
 # print("")
 
-def preprocess(load_review=True, build_word2vec_matrix=True):
+def preprocess(load_review, build_word2vec_matrix=True):
     # Data Preparation
     # Load data
     print("Loading data...")
-    if load_review:
-        x_text, y = data_helpers.load_review_data_and_labels(PROJECT_PATH + '/data/review_seg_1000.csv')
+    if load_review is not None:
+        x_text, y = data_helpers.load_review_data_and_labels(PROJECT_PATH + load_review)
     else:
         x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
 
@@ -207,11 +212,9 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, trai
 
 
 def main(argv=None):
-    load_review = True
-    build_word2vec_matrix = True
-    train_word2vec = True
-    x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix = preprocess(load_review, build_word2vec_matrix)
-    train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, train_word2vec)
+    x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix = preprocess(FLAGS.review_path,
+                                                                                  FLAGS.build_word2vec_matrix)
+    train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, FLAGS.train_word2vec)
 
 
 if __name__ == '__main__':
