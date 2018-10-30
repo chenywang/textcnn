@@ -1,20 +1,18 @@
 #! /usr/bin/env python
 
 import datetime
+import os
 import time
 
 import numpy as np
-import os
 import tensorflow as tf
 from tensorflow.contrib import learn
 
 import data_helpers
+from config.configs import PROJECT_PATH
 from text_cnn import TextCNN
+from word2vec.word2vec_service import Word2VecService
 
-# Parameters
-# ==================================================
-
-# Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos",
                        "Data source for the positive data.")
@@ -47,18 +45,27 @@ FLAGS = tf.flags.FLAGS
 #     print("{}={}".format(attr.upper(), value))
 # print("")
 
-def preprocess():
+def preprocess(load_review=True, build_word2vec_matrix=True):
     # Data Preparation
-    # ==================================================
-
     # Load data
     print("Loading data...")
-    x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
+    if load_review:
+        x_text, y = data_helpers.load_review_data_and_labels(PROJECT_PATH + '/data/review_seg_1000.csv')
+    else:
+        x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
 
     # Build vocabulary
     max_document_length = max([len(x.split(" ")) for x in x_text])
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length,
+                                                              tokenizer_fn=data_helpers.chinese_tokenizer)
     x = np.array(list(vocab_processor.fit_transform(x_text)))
+
+    # build word2vec matrix
+    word2vec_matrix = None
+    if build_word2vec_matrix:
+        vector_size = 100
+        word2vec_service = Word2VecService()
+        word2vec_matrix = data_helpers.build_word2vec_matrix(vocab_processor, vector_size, word2vec_service)
 
     # Randomly shuffle data
     np.random.seed(10)
@@ -76,10 +83,10 @@ def preprocess():
 
     print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
-    return x_train, y_train, vocab_processor, x_dev, y_dev
+    return x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix
 
 
-def train(x_train, y_train, vocab_processor, x_dev, y_dev):
+def train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, train_word2vec):
     # Training
     # ==================================================
 
@@ -96,11 +103,14 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                 embedding_size=FLAGS.embedding_dim,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                 num_filters=FLAGS.num_filters,
-                l2_reg_lambda=FLAGS.l2_reg_lambda)
+                l2_reg_lambda=FLAGS.l2_reg_lambda,
+                word2vec_matrix=word2vec_matrix,
+                train_word2vec=train_word2vec)
 
             # Define Training procedure
             global_step = tf.Variable(0, name="global_step", trainable=False)
             optimizer = tf.train.AdamOptimizer(1e-3)
+            # train_op = optimizer.minimize(cnn.loss)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -197,8 +207,11 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
 
 
 def main(argv=None):
-    x_train, y_train, vocab_processor, x_dev, y_dev = preprocess()
-    train(x_train, y_train, vocab_processor, x_dev, y_dev)
+    load_review = True
+    build_word2vec_matrix = True
+    train_word2vec = True
+    x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix = preprocess(load_review, build_word2vec_matrix)
+    train(x_train, y_train, vocab_processor, x_dev, y_dev, word2vec_matrix, train_word2vec)
 
 
 if __name__ == '__main__':

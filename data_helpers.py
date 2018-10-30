@@ -1,5 +1,7 @@
-import numpy as np
 import re
+
+import numpy as np
+import pandas as pd
 
 
 def clean_str(string):
@@ -43,13 +45,39 @@ def load_data_and_labels(positive_data_file, negative_data_file):
     return [x_text, y]
 
 
+def calc_review_score(data):
+    try:
+        if data['desc_scr'] + data['lgst_scr'] + data['serv_scr'] > 13:
+            return [1, 0]
+        elif data['desc_scr'] < 3 or data['lgst_scr'] < 3 or data['serv_scr'] < 3:
+            return [0, 1]
+        else:
+            return [1, 0]
+    except:
+        return [1, 0]
+
+
+def load_review_data_and_labels(path):
+    df = pd.read_csv(path, sep='\t', lineterminator='\n')
+    df = df.dropna(axis=0, how='any')
+    df['label'] = df.apply(calc_review_score, axis=1)
+    return list(df['words']), np.array(list(df['label'])).astype(np.float32)
+
+
+def build_word2vec_matrix(vocab_processor, vector_size, word2vec_service):
+    matrix = np.zeros((len(vocab_processor.vocabulary_), vector_size))
+    for word, word_id in vocab_processor.vocabulary_._mapping.items():
+        matrix[word_id] = word2vec_service.get_word_vector(word)
+    return matrix.astype(np.float32)
+
+
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     Generates a batch iterator for a dataset.
     """
     data = np.array(data)
     data_size = len(data)
-    num_batches_per_epoch = int((len(data)-1)/batch_size) + 1
+    num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch
         if shuffle:
@@ -61,3 +89,8 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
+
+
+def chinese_tokenizer(docs):
+    for doc in docs:
+        yield list(doc.split(' '))

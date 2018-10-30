@@ -108,3 +108,5 @@ venv.bak/
 .DS_Store
 runs/
 model/
+data/
+*.csv
